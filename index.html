@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riçik Köyü Derneği</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div id="app" class="min-h-screen flex flex-col justify-between">
+        </div>
+
+    <script>
+        // CANLI BACKEND ADRESİMİZ
+        const API_URL = "https://ricik-backend2.onrender.com/api";
+
+        // Basit bir Router (Ekran Yönetimi) mantığı
+        function renderPage() {
+            const app = document.getElementById('app');
+            const token = localStorage.getItem('userToken');
+            const userRole = localStorage.getItem('userRole');
+
+            // Eğer giriş yapılmadıysa varsayılan olarak Giriş ekranını göster
+            if (!token) {
+                app.innerHTML = getLoginTemplate();
+                return;
+            }
+
+            // Admin ise Admin panelini, üye ise profil ekranını göster
+            if (userRole === 'admin') {
+                app.innerHTML = getAdminTemplate();
+                loadAdminData();
+            } else {
+                app.innerHTML = getProfileTemplate();
+            }
+        }
+
+        function getLoginTemplate() {
+            return `
+                <div class="flex items-center justify-center min-h-screen bg-gray-100">
+                    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
+                        <h2 class="text-2xl font-bold text-center text-[#1B4D3E] mb-6">Riçik Derneği Üye Girişi</h2>
+                        <div id="login-error" class="hidden p-3 bg-red-100 text-red-700 text-sm rounded mb-4"></div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-600">Telefon Numarası</label>
+                                <input type="text" id="login-phone" placeholder="05xxxxxxxxx" class="w-full mt-1 p-2 border rounded focus:outline-emerald-600">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-600">Şifre</label>
+                                <input type="password" id="login-pass" placeholder="******" class="w-full mt-1 p-2 border rounded focus:outline-emerald-600">
+                            </div>
+                            <button onclick="handleLogin()" class="w-full bg-[#1B4D3E] hover:bg-emerald-800 text-white p-2 rounded font-semibold transition">Giriş Yap</button>
+                        </div>
+                        <p class="text-xs text-center text-gray-500 mt-4">İlk Admin Girişi İçin:<br><b>Tel:</b> 05000000000 | <b>Şifre:</b> 123456</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getAdminTemplate() {
+            return `
+                <div class="flex min-h-screen">
+                    <div class="w-64 bg-[#1B4D3E] text-white p-6 space-y-4">
+                        <h1 class="text-xl font-bold border-b border-emerald-700 pb-4">Riçik Yönetim</h1>
+                        <nav class="space-y-2">
+                            <a href="#" class="block py-2 px-4 rounded bg-emerald-800 font-medium">Onay Bekleyenler</a>
+                            <button onclick="handleLogout()" class="w-full text-left py-2 px-4 rounded text-red-300 hover:bg-red-900 transition">Çıkış Yap</button>
+                        </nav>
+                    </div>
+                    <div class="flex-1 p-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Üyelik Başvuruları</h2>
+                        <div class="bg-white rounded-xl shadow border overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-100 text-xs font-semibold uppercase text-gray-600">
+                                    <tr>
+                                        <th class="p-4">Ad Soyad</th>
+                                        <th class="p-4">Anne / Baba</th>
+                                        <th class="p-4">Telefon</th>
+                                        <th class="p-4 text-right">Aksiyon</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-table-body" class="text-sm divide-y">
+                                    <tr><td colspan="4" class="p-4 text-center text-gray-500">Yükleniyor...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getProfileTemplate() {
+            return `
+                <div class="max-w-xl mx-auto my-12 bg-white p-8 rounded-xl shadow border">
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">Başvurunuz Onaylandı!</h2>
+                    <p class="text-sm text-gray-600 mb-6">Profilinizi güncelleyerek dernek haritasında yerinizi alabilirsiniz.</p>
+                    <button onclick="handleLogout()" class="bg-red-600 text-white px-4 py-2 rounded text-sm font-medium">Çıkış Yap</button>
+                </div>
+            `;
+        }
+
+        // ==========================================
+        // AKSİYON FONKSİYONLARI (API BAĞLANTILARI)
+        // ==========================================
+        async function handleLogin() {
+            const telefon = document.getElementById('login-phone').value;
+            const sifre = document.getElementById('login-pass').value;
+            const errorDiv = document.getElementById('login-error');
+
+            try {
+                const res = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefon, sifre })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    localStorage.setItem('userToken', data.token);
+                    localStorage.setItem('userRole', data.user.rol);
+                    renderPage();
+                } else {
+                    errorDiv.innerText = data.message || "Giriş başarısız.";
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorDiv.innerText = "Sunucu bağlantı hatası.";
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function loadAdminData() {
+            const token = localStorage.getItem('userToken');
+            try {
+                const res = await fetch(`${API_URL}/admin/users?durum=onay_bekliyor`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const tbody = document.getElementById('admin-table-body');
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500">Bekleyen yeni başvuru yok.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.map(u => `
+                    <tr>
+                        <td class="p-4 font-medium">${u.ad} ${u.soyad}</td>
+                        <td class="p-4">${u.anne_adi} / ${u.baba_adi}</td>
+                        <td class="p-4">${u.telefon}</td>
+                        <td class="p-4 text-right">
+                            <button onclick="approveUser(${u.id})" class="bg-emerald-600 text-white px-3 py-1 rounded text-xs">Onayla</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error("Veri yüklenemedi.");
+            }
+        }
+
+        async function approveUser(id) {
+            const token = localStorage.getItem('userToken');
+            if(!confirm("Bu köylümüzün üyeliğini onaylıyor musunuz?")) return;
+            try {
+                const res = await fetch(`${API_URL}/admin/users/${id}/status`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ yeniDurum: 'aktif' })
+                });
+                if(res.ok) {
+                    alert("Kullanıcı başarıyla onaylandı!");
+                    loadAdminData();
+                }
+            } catch(e) { alert("İşlem başarısız."); }
+        }
+
+        function handleLogout() {
+            localStorage.clear();
+            renderPage();
+        }
+
+        // Uygulamayı Başlat
+        renderPage();
+    </script>
+</body>
+</html>
